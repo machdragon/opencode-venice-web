@@ -251,6 +251,18 @@ test('shouldRetry: prose is retried, tool calls are accepted', () => {
   assert.equal(shouldRetry({ message: callEnvelope(), lastRole: 'user' }).retry, false)
 })
 
+// The last format retry runs Venice's own tool loop to the end; what comes out
+// can be plain prose saying every tool returned "Tool not found". With no
+// format retry left, that reply goes to the judge instead of straight to the
+// client (omp second-opinion run, 2026-11-27).
+test('shouldRetry: with no format retry left, a give-up reply after a tool result goes to the judge', () => {
+  const gaveUp = parseToolReply('Every tool call this run came back Tool not found, so I could not record it.')
+  assert.equal(shouldRetry({ message: gaveUp, lastRole: 'tool' }).retry, true, 'with budget left it is a format retry')
+  assert.deepEqual(shouldRetry({ message: gaveUp, lastRole: 'tool', formatBudgetLeft: false }), { retry: false, judge: true })
+  assert.equal(shouldRetry({ message: callEnvelope(), lastRole: 'tool', formatBudgetLeft: false }).judge, undefined, 'a tool call still goes out')
+  assert.equal(shouldRetry({ message: gaveUp, lastRole: 'user', formatBudgetLeft: false }).judge, undefined, 'a reply to the user is not judged')
+})
+
 test('shouldRetry: an answer without tools is accepted on a tool-result turn only', () => {
   assert.equal(shouldRetry({ message: answerEnvelope('done'), lastRole: 'tool' }).retry, false)
   assert.deepEqual(shouldRetry({ message: answerEnvelope('done'), lastRole: 'user' }), {

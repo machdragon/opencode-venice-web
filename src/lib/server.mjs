@@ -305,7 +305,7 @@ async function* openaiChunks(body, mapping, upstreamBody, signal) {
     // last retry produced reached the user without the judge ever seeing it
     // (a made-up "the tools all returned Tool not found", 2026-11-05).
     for (;;) {
-      let decision = shouldRetry({ message, lastRole: last?.role, available })
+      let decision = shouldRetry({ message, lastRole: last?.role, available, formatBudgetLeft: formatRetries < 2 })
       if (decision.judge) {
         if (!judgeEnabled || judged >= 2) break
         judged++
