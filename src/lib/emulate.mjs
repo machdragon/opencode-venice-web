@@ -151,7 +151,14 @@ export const EMPTY_MARKER = '(empty reply)'
  * @param {{ message: {tool_calls: unknown[]|null, content: string, sawEnvelope: boolean, brokenEnvelope?: boolean, status?: string, problems?: string[]}, lastRole?: string, available?: string[] }} input
  * @returns {{ retry: boolean, reason?: string, reminder?: string, judge?: boolean }}
  */
-export function shouldRetry({ message, lastRole, available = [] }) {
+export function shouldRetry({ message, lastRole, available = [], formatBudgetLeft = true }) {
+  // No format retry is left, and the reply ends the turn after a tool result
+  // without calling a tool: only the judge can still catch a reply that gave
+  // up. The last format retry runs Venice's own tool loop to the end, and its
+  // "every tool returned Tool not found" came out as plain prose, which asked
+  // for a format retry, found none left, and reached the client unjudged
+  // (omp second-opinion run, 2026-11-27).
+  if (!formatBudgetLeft && lastRole === 'tool' && !message.tool_calls && !message.serverLoop) return { retry: false, judge: true }
   if (message.serverLoop) return { retry: true, reason: 'venice tool loop', reminder: NATIVE_CALL_REMINDER }
   if (isEmptyAnswer(message) && !message.brokenEnvelope) {
     return { retry: true, reason: 'empty reply', reminder: EMPTY_RETRY_REMINDER }
